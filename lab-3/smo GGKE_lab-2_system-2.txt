@@ -21,23 +21,23 @@ TU_buf  QTABLE	    buf1,0.1,0.1,50;
 Erl_3	VARIABLE	(Exponential(RN_erl1,0,t_a/3))+(Exponential(RN_erl2,0,t_a/3))+(Exponential(RN_erl3,0,t_a/3)); сл.величина по закону Эрланга 3-го порядка
 **********************************************************************************************
 GENERATE    (Exponential(RN_a,0,t_a))
-        TEST    LE	Q$buf1,E_buf,term; отбросить заявку при переполнении очереди (buf1 > E_buf => term)
+        TEST LE   Q$buf1,E_buf,term; отбросить заявку при переполнении очереди (buf1 > E_buf => term) !!!обязательно 1 пробел после TEST!!!
         QUEUE	    buf1; отметить поступление в очередь
         TRANSFER    P_2,way_1,way_2; распределение между приборами по вероятности
 
 way_1   SEIZE	    serv_1; узел с экспоненциальным распределением
         DEPART	    buf1; отметить выход из очереди
         ADVANCE	    (Exponential(RN_b,0,t_b)); время обработки в приборе 1
-        LEAVE	    serv_1
-        TRANSFER    ,exit; конец обработки заявки
+        RELEASE	    serv_1
+        TRANSFER    ,out; конец обработки заявки
 
 way_2   SEIZE       serv_2; узел с Эрланговским распределением k-го порядка
         DEPART      buf1; отметить выход из очереди
         ADVANCE     V$Erl_3; эрлангковское распределение 3-го порядка в приборе 2
-        LEAVE	    serv_2
-        TRANSFER    ,exit; конец обработки заявки
+        RELEASE     serv_2
+        TRANSFER    ,out; конец обработки заявки
 
-exit    TABULATE 	TU_sys
+out     TABULATE 	TU_sys
         TERMINATE  1
-term	TERMINATE  1
+term    TERMINATE  1
 **********************************************************************************************
