@@ -42,22 +42,28 @@ oc_1    GATE LR     serv_2,way_3; занят ли сервер 2
         TRANSFER    P_2_3_f,way_3,way_2
 
 way_1   LOGIC S     serv_1; заняли первый узел
+        SEIZE       s_1; для сбора статистики
         DEPART      buf1; отметить выход из очереди
         ADVANCE     (Exponential(321,0,t_b)); время обработки в приборе 1
+        RELEASE     s_1; для сбора статистики
         LOGIC R     serv_1
         LEAVE       serv; покидаем прибор
         TRANSFER    ,out; конец обработки заявки
 
 way_2   LOGIC S     serv_2; заняли второй узел
+        SEIZE       s_2; для сбора статистики
         DEPART      buf1; отметить выход из очереди
         ADVANCE     (Exponential(432,0,t_b)); время обработки в приборе 2
+        RELEASE     s_2; для сбора статистики
         LOGIC R     serv_2
         LEAVE       serv; покидаем прибор
         TRANSFER    ,out; конец обработки заявки
 
 way_3   LOGIC S     serv_3; заняли третий узел
+        SEIZE       s_3; для сбора статистики
         DEPART      buf1; отметить выход из очереди
         ADVANCE     (Exponential(543,0,t_b)); время обработки в приборе 3
+        RELEASE     s_3; для сбора статистики
         LOGIC R     serv_3
         LEAVE       serv; покидаем прибор
         TRANSFER    ,out; конец обработки заявки
