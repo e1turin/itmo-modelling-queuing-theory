@@ -6,11 +6,11 @@
 servs   STORAGE 3       ; многоканальный псевдо-прибор для учета вероятностей выбора
 E_buf   EQU     3       ; емкость накопителя (буфера)
 t_a     EQU     1       ; интервал между поступающими заявками
-t_ae    EQU     0.5     ; интервал между поступающими заявками при Эрланге k-го порядка
+t_ae    EQU     0.5     ; интервал между поступающими заявками при Эрланге 2-го порядка
 t_b     EQU     2       ; средняя длительность обслуживания заявки в приборе
 RN_a    EQU     305     ; номер ген-ра для потока заявок
-RN_ae1  EQU     304     ; номер ген-ра для потока заявок при Эрланге (стадия 1)
-RN_ae2  EQU     306     ; номер ген-ра для потока заявок при Эрланге (стадия 2)
+RN_ae1  EQU     304     ; номер ген-ра для потока заявок при Эрланге-2 (стадия 1)
+RN_ae2  EQU     306     ; номер ген-ра для потока заявок при Эрланге-2 (стадия 2)
 RN_b    EQU     423     ; номер ген-ра для длительности обслуживания
 P_1     EQU     0.6     ; вероятность занятия первого прибора
 P_2     EQU     0.25    ; вероятность занятия второго прибора
@@ -20,13 +20,16 @@ P_1or3  EQU     0.8     ; вероятность заняния П1, если з
 P_2or3  EQU     0.625   ; вероятность заняния П2, если заняли П1
 ******************************************************************
         *GENERATE    (GetRandomNumberFromFile("D:\absolute\path\to\trace.txt")) ; для трассы
-        *GENERATE    (GetRandomNumberFromFile("D:\absolute\path\to\approx.txt")); для апроксимации трассы
+        *GENERATE    (GetRandomNumberFromFile("D:\absolute\path\to\approx.txt")); для аппр-ции трассы
         *GENERATE    (Exponential(RN_ae1,0,t_ae)+Exponential(RN_ae2,0,t_ae))    ; для аппр-ции Эрланга-2
         GENERATE    (Exponential(RN_a,0,t_a)); для простейшего
 
-        TEST L      Q$buf1,E_buf,lost  ; отбросить заявку при переполнении очереди
-        QUEUE       buf1
-        ENTER       servs  ; занять приборы, если есть хоть 1 свободный, иначе - сброс
+        QUEUE       sys  ; для посчата времени пребывания
+        TEST L      Q$buf,E_buf,loss  ; отбросить заявку при переполнении очереди
+        QUEUE       buf
+        ENTER       servs  ; занять 1 из свободных приборов, иначе ждать
+
+* развязка по вероятностям в зависимости от занятости приборов: *
 
         GATE LR     in_use_1,busy_1     ; П1 занят => П2 или П3
         GATE LR     in_use_2,busy_2     ; П2 занят => П1 или П3 (П1 свободен)
@@ -34,18 +37,20 @@ P_2or3  EQU     0.625   ; вероятность заняния П2, если з
         TRANSFER    P_1,,way_1          ; все свободны => П1 или не П1
         TRANSFER    P_2or3,way_3,way_2  ; П2 или П3 при условии не П1
 
-busy_1  GATE LR     serv_2,way_3        ; П2 занят => П3
-        GATE LR     serv_3,way_2        ; П3 занят => П2
+busy_1  GATE LR     in_use_2,way_3      ; П2 занят => П3
+        GATE LR     in_use_3,way_2      ; П3 занят => П2
         TRANSFER    P_2or3,way_3,way_2  ; П2 или П3
 
-busy_2  GATE LR     serv_3,way_1        ; П3 занят => П1
+busy_2  GATE LR     in_use_3,way_1      ; П3 занят => П1
         TRANSFER    P_1or3,way_3,way_1  ; П1 или П3
 
 busy_3  TRANSFER    P_1or2,way_2,way_1  ; П1 или П2
 
+* занятие приборов: *
+
 way_1   LOGIC S     in_use_1
         SEIZE       serv_1
-        DEPART      buf1
+        DEPART      buf
         ADVANCE     (Exponential(321,0,t_b))
         RELEASE     serv_1
         LOGIC R     in_use_1
@@ -53,7 +58,7 @@ way_1   LOGIC S     in_use_1
 
 way_2   LOGIC S     in_use_2
         SEIZE       serv_2
-        DEPART      buf1
+        DEPART      buf
         ADVANCE     (Exponential(432,0,t_b))
         RELEASE     serv_2
         LOGIC R     in_use_2
@@ -61,16 +66,21 @@ way_2   LOGIC S     in_use_2
 
 way_3   LOGIC S     in_use_3
         SEIZE       serv_3
-        DEPART      buf1
+        DEPART      buf
         ADVANCE     (Exponential(543,0,t_b))
         RELEASE     serv_3
         LOGIC R     in_use_3
         TRANSFER    ,out
 
-out     LEAVE       servs; покидаем систему
+* выход из системы: *
+
+out     LEAVE       servs
+        DEPART      sys
         TERMINATE   1
 
-lost    TERMINATE   1
+loss    DEPART      sys
+        TERMINATE   1
+
 ****************************************************************************
 * Служебные переменные, необходимые для процедуры GetRandomNumberFromFile  *
 ****************************************************************************
